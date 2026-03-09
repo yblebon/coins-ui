@@ -3,21 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Live tracker of the top 10 most volatile cryptocurrencies by 24h price change." />
+  <meta name="description" content="Live top-10 volatile crypto tracker powered by a Bun + Elysia backend." />
   <title>Crypto Volatility Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg:       #080c10;
-      --surface:  #0d1117;
-      --border:   #1e2a38;
-      --muted:    #3a4a5c;
-      --text:     #c8d8e8;
-      --dim:      #607080;
+      --bg:       #060a0e;
+      --surface:  #0c1118;
+      --surface2: #111820;
+      --border:   #1a2433;
+      --muted:    #2e3f52;
+      --text:     #b8cfe0;
+      --dim:      #506070;
       --up:       #00e896;
       --down:     #ff4060;
-      --accent:   #f0c040;
+      --neutral:  #f0c040;
+      --accent:   #38bdf8;
       --mono:     'Share Tech Mono', monospace;
       --sans:     'Barlow Condensed', sans-serif;
     }
@@ -29,58 +31,50 @@
       color: var(--text);
       font-family: var(--sans);
       min-height: 100vh;
-      padding: 40px 20px 60px;
+      padding: 36px 16px 60px;
       background-image:
-        radial-gradient(ellipse 60% 40% at 50% -10%, rgba(0,232,150,0.06) 0%, transparent 70%),
-        repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(30,42,56,0.4) 40px),
-        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(30,42,56,0.2) 40px);
+        radial-gradient(ellipse 70% 35% at 50% -5%, rgba(56,189,248,0.055) 0%, transparent 65%),
+        repeating-linear-gradient(0deg, transparent, transparent 47px, rgba(26,36,51,0.35) 48px),
+        repeating-linear-gradient(90deg, transparent, transparent 47px, rgba(26,36,51,0.2) 48px);
     }
 
-    /* ── Header ── */
+    /* ── Header ─────────────────────────────────────────────────── */
     header {
-      max-width: 900px;
-      margin: 0 auto 36px;
+      max-width: 1300px;
+      margin: 0 auto 32px;
       display: flex;
       align-items: flex-end;
       justify-content: space-between;
-      gap: 16px;
       flex-wrap: wrap;
+      gap: 14px;
     }
-
     .header-left h1 {
       font-family: var(--sans);
-      font-weight: 700;
-      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 900;
+      font-size: clamp(1.7rem, 4vw, 2.6rem);
       letter-spacing: 0.04em;
       text-transform: uppercase;
-      line-height: 1;
       color: #fff;
+      line-height: 1;
     }
-
-    .header-left h1 span {
-      color: var(--accent);
-    }
-
+    .header-left h1 span { color: var(--accent); }
     .header-left p {
       font-family: var(--mono);
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       color: var(--dim);
-      margin-top: 6px;
-      letter-spacing: 0.05em;
+      margin-top: 7px;
+      letter-spacing: 0.06em;
     }
-
     .header-right {
       display: flex;
       flex-direction: column;
       align-items: flex-end;
       gap: 6px;
     }
-
-    /* ── Refresh controls ── */
     #refresh-btn {
       font-family: var(--mono);
-      font-size: 0.75rem;
-      letter-spacing: 0.06em;
+      font-size: 0.73rem;
+      letter-spacing: 0.07em;
       background: transparent;
       border: 1px solid var(--muted);
       color: var(--text);
@@ -89,172 +83,163 @@
       text-transform: uppercase;
       transition: border-color 0.2s, color 0.2s;
     }
-    #refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
-    #refresh-btn:disabled { opacity: 0.4; cursor: default; }
-
+    #refresh-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    #refresh-btn:disabled { opacity: 0.35; cursor: default; }
     #status-bar {
       font-family: var(--mono);
-      font-size: 0.68rem;
+      font-size: 0.67rem;
       color: var(--dim);
       letter-spacing: 0.04em;
-      text-align: right;
     }
+    #countdown-bar  { width: 130px; height: 2px; background: var(--border); margin-left: auto; }
+    #countdown-fill { height: 100%; background: var(--accent); width: 100%; transition: width 1s linear; }
 
-    #countdown-bar {
-      width: 120px;
-      height: 2px;
-      background: var(--border);
-      margin-top: 4px;
-      margin-left: auto;
-      overflow: hidden;
-    }
-    #countdown-fill {
-      height: 100%;
-      background: var(--accent);
-      width: 100%;
-      transition: width 1s linear;
-    }
-
-    /* ── Main container ── */
-    .container { max-width: 900px; margin: 0 auto; }
-
-    /* ── Alert / Error ── */
+    /* ── Error ───────────────────────────────────────────────────── */
     #error-msg {
       display: none;
       font-family: var(--mono);
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       color: var(--down);
       border: 1px solid var(--down);
-      padding: 12px 16px;
-      margin-bottom: 20px;
-      letter-spacing: 0.04em;
+      padding: 10px 14px;
+      margin: 0 auto 18px;
+      max-width: 1300px;
+      letter-spacing: 0.03em;
     }
 
-    /* ── Skeleton loader ── */
-    #skeleton { display: block; }
-
+    /* ── Skeleton ────────────────────────────────────────────────── */
+    #skeleton { max-width: 1300px; margin: 0 auto; }
     .sk-row {
-      display: flex;
+      display: grid;
+      grid-template-columns: 36px 170px 110px 90px 90px 160px 1fr;
       gap: 12px;
-      padding: 14px 0;
+      padding: 14px 12px;
       border-bottom: 1px solid var(--border);
-      animation: pulse 1.4s ease-in-out infinite;
+      animation: pulse 1.5s ease-in-out infinite;
     }
-    .sk-cell {
-      background: var(--surface);
-      border-radius: 2px;
-      height: 14px;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 0.5; }
-      50%       { opacity: 1;   }
-    }
+    .sk-cell { background: var(--surface2); border-radius: 2px; height: 13px; }
+    @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.85} }
 
-    /* ── Table ── */
-    #crypto-table { display: none; width: 100%; border-collapse: collapse; }
+    /* ── Table ───────────────────────────────────────────────────── */
+    .table-wrap { max-width: 1300px; margin: 0 auto; overflow-x: auto; }
+    #crypto-table { display: none; width: 100%; border-collapse: collapse; min-width: 900px; }
 
-    thead tr {
-      border-bottom: 1px solid var(--muted);
-    }
-
+    thead tr { border-bottom: 1px solid var(--muted); }
     th {
       font-family: var(--mono);
-      font-size: 0.68rem;
+      font-size: 0.65rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--dim);
       padding: 10px 12px;
       text-align: left;
       font-weight: 400;
+      white-space: nowrap;
+      user-select: none;
     }
-    th:last-child { text-align: right; }
+    th.sortable { cursor: pointer; }
+    th.sortable:hover  { color: var(--accent); }
+    th.sort-asc::after  { content: ' ↑'; color: var(--accent); }
+    th.sort-desc::after { content: ' ↓'; color: var(--accent); }
+    th.sort-asc, th.sort-desc { color: var(--accent); }
+    th.col-change, th.col-sentiment { text-align: right; }
+
+    tbody tr { transition: background 0.15s; }
+    tbody tr:hover { background: rgba(56,189,248,0.03); }
 
     td {
       padding: 13px 12px;
-      font-size: 1rem;
       border-bottom: 1px solid var(--border);
-      vertical-align: middle;
+      vertical-align: top;
+      font-size: 0.97rem;
     }
 
-    tbody tr {
-      transition: background 0.15s;
-    }
-    tbody tr:hover { background: rgba(255,255,255,0.03); }
+    /* Rank */
+    .td-rank { font-family: var(--mono); font-size: 0.68rem; color: var(--muted); text-align: center; padding-top: 15px; width: 36px; }
 
-    /* rank */
-    .td-rank {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      color: var(--muted);
-      width: 36px;
-      text-align: center;
-    }
+    /* Coin */
+    .td-coin { min-width: 150px; }
+    .coin-name { font-weight: 700; font-size: 1rem; color: #fff; display: block; }
+    .coin-sym  { font-family: var(--mono); font-size: 0.68rem; color: var(--dim); letter-spacing: 0.08em; margin-top: 2px; display: block; }
 
-    /* coin name */
-    .td-name { font-weight: 600; font-size: 1.05rem; color: #fff; }
-    .td-symbol {
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      color: var(--dim);
-      margin-left: 6px;
-      letter-spacing: 0.08em;
-    }
+    /* Price */
+    .td-price { font-family: var(--mono); font-size: 0.87rem; color: var(--text); white-space: nowrap; padding-top: 15px; }
 
-    /* price */
-    .td-price {
-      font-family: var(--mono);
-      font-size: 0.9rem;
-      color: var(--text);
-    }
-
-    /* 24h change */
-    .td-change {
-      font-family: var(--mono);
-      font-size: 1rem;
-      font-weight: 600;
-      text-align: right;
-    }
-    .td-change.up   { color: var(--up);   }
-    .td-change.down { color: var(--down); }
-
-    /* sparkline bar */
-    .td-bar { width: 120px; }
-    .bar-track {
-      height: 4px;
-      background: var(--border);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    .bar-fill {
-      height: 100%;
-      border-radius: 2px;
-      transition: width 0.6s ease;
-    }
-    .bar-fill.up   { background: var(--up);   }
+    /* Bar */
+    .td-bar { width: 100px; padding-top: 18px; }
+    .bar-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+    .bar-fill.up   { background: var(--up); }
     .bar-fill.down { background: var(--down); }
 
-    /* ── Footer note ── */
+    /* Change */
+    .td-change { font-family: var(--mono); font-size: 1rem; font-weight: 600; text-align: right; white-space: nowrap; padding-top: 15px; }
+    .td-change.up   { color: var(--up); }
+    .td-change.down { color: var(--down); }
+
+    /* ── Sentiment ───────────────────────────────────────────────── */
+    .td-sentiment { min-width: 170px; text-align: right; }
+    .sentiment-wrap { display: inline-block; width: 152px; text-align: left; }
+    .sentiment-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+    .sentiment-pill {
+      font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.07em;
+      padding: 2px 7px; border-radius: 2px; text-transform: uppercase; font-weight: 600;
+    }
+    .sentiment-pill.bullish { background: rgba(0,232,150,0.15); color: var(--up);      border: 1px solid rgba(0,232,150,0.3); }
+    .sentiment-pill.bearish { background: rgba(255,64,96,0.15);  color: var(--down);   border: 1px solid rgba(255,64,96,0.3); }
+    .sentiment-pill.neutral { background: rgba(240,192,64,0.12); color: var(--neutral);border: 1px solid rgba(240,192,64,0.3); }
+    .sentiment-score-text { font-family: var(--mono); font-size: 0.62rem; color: var(--dim); }
+    .sentiment-track {
+      height: 6px; background: var(--border); border-radius: 3px;
+      position: relative; overflow: visible; margin-bottom: 4px;
+    }
+    .sentiment-track::before {
+      content: ''; position: absolute; inset: 0; border-radius: 3px;
+      background: linear-gradient(to right, rgba(255,64,96,0.25), rgba(240,192,64,0.2) 50%, rgba(0,232,150,0.25));
+    }
+    .sentiment-needle {
+      position: absolute; top: -3px; width: 3px; height: 12px;
+      background: #fff; border-radius: 1px; transform: translateX(-50%);
+      transition: left 0.8s cubic-bezier(.34,1.56,.64,1);
+      box-shadow: 0 0 6px rgba(255,255,255,0.5);
+    }
+    .sentiment-reason { font-family: var(--mono); font-size: 0.6rem; color: var(--dim); line-height: 1.4; margin-top: 3px; max-width: 152px; }
+
+    /* Skeleton states for sentiment/news cells */
+    .sk-inline { background: var(--surface2); border-radius: 2px; height: 11px; animation: pulse 1.5s ease-in-out infinite; margin-bottom: 5px; display: block; }
+    .news-skeleton { display: flex; flex-direction: column; gap: 8px; }
+    .ns-line { background: var(--surface2); border-radius: 2px; height: 11px; animation: pulse 1.5s ease-in-out infinite; }
+
+    /* ── News ────────────────────────────────────────────────────── */
+    .td-news { min-width: 280px; max-width: 380px; }
+    .news-list { list-style: none; }
+    .news-list li { padding: 4px 0; border-bottom: 1px solid rgba(26,36,51,0.6); }
+    .news-list li:last-child { border-bottom: none; }
+    .news-link {
+      font-family: var(--sans); font-size: 0.82rem; font-weight: 600;
+      color: var(--text); text-decoration: none; line-height: 1.35; display: block;
+      transition: color 0.15s;
+    }
+    .news-link:hover { color: var(--accent); }
+    .news-source { font-family: var(--mono); font-size: 0.58rem; color: var(--dim); letter-spacing: 0.05em; margin-top: 1px; display: block; }
+    .news-error  { font-family: var(--mono); font-size: 0.65rem; color: var(--down); opacity: 0.7; }
+
+    /* ── Flash ───────────────────────────────────────────────────── */
+    @keyframes flash-up   { 0%,100%{background:transparent} 30%{background:rgba(0,232,150,0.07)} }
+    @keyframes flash-down { 0%,100%{background:transparent} 30%{background:rgba(255,64,96,0.07)} }
+    .flash-up   { animation: flash-up   0.8s ease; }
+    .flash-down { animation: flash-down 0.8s ease; }
+
+    /* ── Footer ──────────────────────────────────────────────────── */
     footer {
-      max-width: 900px;
-      margin: 28px auto 0;
-      font-family: var(--mono);
-      font-size: 0.66rem;
-      color: var(--muted);
-      line-height: 1.7;
-      letter-spacing: 0.03em;
-      border-top: 1px solid var(--border);
-      padding-top: 16px;
+      max-width: 1300px; margin: 26px auto 0;
+      font-family: var(--mono); font-size: 0.63rem; color: var(--muted);
+      line-height: 1.8; letter-spacing: 0.03em;
+      border-top: 1px solid var(--border); padding-top: 14px;
     }
 
-    /* ── Flash animation on row update ── */
-    @keyframes flash-up   { 0%,100%{background:transparent} 30%{background:rgba(0,232,150,0.08)} }
-    @keyframes flash-down { 0%,100%{background:transparent} 30%{background:rgba(255,64,96,0.08)}  }
-    .flash-up   { animation: flash-up   0.7s ease; }
-    .flash-down { animation: flash-down 0.7s ease; }
-
-    @media (max-width: 600px) {
-      .td-bar, th.col-bar { display: none; }
-      th, td { padding: 10px 8px; }
+    @media (max-width: 768px) {
+      .td-bar, th.col-bar, .td-sentiment, th.col-sentiment { display: none; }
     }
   </style>
 </head>
@@ -263,7 +248,7 @@
   <header>
     <div class="header-left">
       <h1>Crypto <span>Volatility</span> Tracker</h1>
-      <p>TOP 10 &bull; BY 24H PRICE CHANGE &bull; SOURCE: COINGECKO</p>
+      <p>TOP 10 · 24H CHANGE · AI NEWS SENTIMENT · POWERED BY BUN + ELYSIA</p>
     </div>
     <div class="header-right">
       <button id="refresh-btn" onclick="manualRefresh()">&#8635; Refresh</button>
@@ -272,25 +257,23 @@
     </div>
   </header>
 
-  <div class="container">
-    <div id="error-msg"></div>
+  <div id="error-msg"></div>
 
-    <!-- Skeleton loader -->
-    <div id="skeleton">
-      <table style="width:100%;border-collapse:collapse">
-        <tbody id="sk-body"></tbody>
-      </table>
-    </div>
+  <div id="skeleton" style="max-width:1300px;margin:0 auto;">
+    <table style="width:100%;border-collapse:collapse"><tbody id="sk-body"></tbody></table>
+  </div>
 
-    <!-- Real table -->
+  <div class="table-wrap">
     <table id="crypto-table" aria-label="Top 10 most volatile cryptocurrencies">
       <thead>
         <tr>
-          <th>#</th>
-          <th>Coin</th>
-          <th>Price (USD)</th>
-          <th class="col-bar">24h Magnitude</th>
-          <th>24h Change</th>
+          <th style="width:36px">#</th>
+          <th class="sortable" data-col="name">Coin</th>
+          <th class="sortable" data-col="price">Price (USD)</th>
+          <th class="col-bar" style="width:110px;">24h Magnitude</th>
+          <th class="sortable col-change" data-col="change">24h Change</th>
+          <th class="sortable col-sentiment" data-col="sentiment">Sentiment</th>
+          <th>Latest News</th>
         </tr>
       </thead>
       <tbody id="crypto-body"></tbody>
@@ -298,219 +281,284 @@
   </div>
 
   <footer>
-    ⚠ Data sourced from CoinGecko public API. Rankings reflect absolute 24h price change from the top 100 coins by market cap.<br>
-    Cryptocurrency markets are highly speculative. This page is informational only — not financial advice. Always do your own research.
+    ⚠ Price data: CoinGecko API via <code>/api/coins</code>.
+    News &amp; sentiment: Claude AI with live web search via <code>/api/news/:coinId</code>.<br>
+    Sentiment: −1.0 (very bearish) → +1.0 (very bullish). Informational only — not financial advice.
   </footer>
 
   <script>
-    // ── Config ──────────────────────────────────────────────────────────────
-    const REFRESH_INTERVAL = 60; // seconds
-    const API_URL = 'https://api.coingecko.com/api/v3/coins/markets'
-      + '?vs_currency=usd&order=market_cap_desc&per_page=100&page=1'
-      + '&sparkline=false&price_change_percentage=24h';
+  // ─────────────────────────────────────────────────────────────────────────
+  // CONFIG — change API_BASE to point at your Vercel deployment in production
+  // e.g.  const API_BASE = "https://your-project.vercel.app";
+  // ─────────────────────────────────────────────────────────────────────────
+  const API_BASE         = "";          // empty = same origin (works locally & on Vercel)
+  const REFRESH_INTERVAL = 90;          // seconds between auto price refresh
 
-    // ── State ────────────────────────────────────────────────────────────────
-    let countdownTimer  = null;
-    let refreshTimer    = null;
-    let secondsLeft     = REFRESH_INTERVAL;
-    let previousData    = {};   // symbol → change %, for flash detection
-    let isFetching      = false;
+  // ── State ─────────────────────────────────────────────────────────────────
+  let tableData    = [];   // [{ coin, news, sentiment, _pending }]
+  let sortCol      = "change";
+  let sortDir      = "desc";
+  let prevChanges  = {};
+  let isFetching   = false;
+  let secondsLeft  = REFRESH_INTERVAL;
+  let countdownTmr = null;
+  let refreshTmr   = null;
 
-    // ── Skeleton ─────────────────────────────────────────────────────────────
-    (function buildSkeleton() {
-      const widths = [
-        [30, 140, 100, 110, 70],
-        [30, 120, 110,  90, 80],
-        [30, 160,  90, 100, 75],
-        [30, 130, 105,  95, 65],
-        [30, 150,  85, 105, 70],
-      ];
-      const tbody = document.getElementById('sk-body');
-      for (let i = 0; i < 10; i++) {
-        const w = widths[i % widths.length];
-        const tr = document.createElement('tr');
-        tr.className = 'sk-row';
-        tr.style.animationDelay = `${i * 0.08}s`;
-        tr.innerHTML = w.map(px =>
-          `<td style="padding:14px 12px"><div class="sk-cell" style="width:${px}px"></div></td>`
-        ).join('');
-        tbody.appendChild(tr);
+  // ── Skeleton ──────────────────────────────────────────────────────────────
+  (function buildSkeleton() {
+    const tbody = document.getElementById("sk-body");
+    const widths = [[160,110,80,90,140,260],[140,90,90,90,130,240],[170,100,80,95,150,220]];
+    for (let i = 0; i < 10; i++) {
+      const w = widths[i % widths.length];
+      const tr = document.createElement("tr");
+      tr.className = "sk-row";
+      tr.style.animationDelay = `${i * 0.07}s`;
+      tr.innerHTML = `<td><div class="sk-cell" style="width:24px"></div></td>`
+        + w.map(px => `<td><div class="sk-cell" style="width:${px}px"></div></td>`).join("");
+      tbody.appendChild(tr);
+    }
+  })();
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function fmtPrice(p) {
+    if (p == null) return "—";
+    if (p >= 1000) return "$" + p.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
+    if (p >= 1)    return "$" + p.toFixed(2);
+    if (p >= 0.01) return "$" + p.toFixed(4);
+    return "$" + p.toExponential(3);
+  }
+  function fmtChange(pct) { return (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%"; }
+  function currentTimeLabel() {
+    const now = new Date(), tz = "Europe/Paris";
+    const time = now.toLocaleTimeString("en-US", {timeZone:tz, hour12:true, hour:"numeric", minute:"2-digit", second:"2-digit"});
+    const tzName = new Intl.DateTimeFormat("en-US", {timeZone:tz, timeZoneName:"short"})
+      .formatToParts(now).find(p => p.type === "timeZoneName")?.value ?? "";
+    return `${time} ${tzName}`;
+  }
+
+  // ── Fetch coins from backend ──────────────────────────────────────────────
+  async function fetchCoins() {
+    if (isFetching) return;
+    isFetching = true;
+    document.getElementById("refresh-btn").disabled = true;
+    document.getElementById("error-msg").style.display = "none";
+
+    try {
+      const res = await fetch(`${API_BASE}/api/coins`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `Server error: HTTP ${res.status}`);
       }
-    })();
+      const { coins, maxAbsChange } = await res.json();
 
-    // ── Format helpers ────────────────────────────────────────────────────────
-    function formatPrice(price) {
-      if (price == null) return '—';
-      if (price >= 1)    return '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      if (price >= 0.01) return '$' + price.toFixed(4);
-      return '$' + price.toExponential(3);
-    }
+      // Preserve existing news/sentiment for coins still in the list
+      const prevMap = {};
+      tableData.forEach(d => { prevMap[d.coin.id] = d; });
 
-    function formatChange(pct) {
-      const sign = pct >= 0 ? '+' : '';
-      return sign + pct.toFixed(2) + '%';
-    }
+      tableData = coins.map(coin => ({
+        coin,
+        news:      prevMap[coin.id]?.news      ?? null,
+        sentiment: prevMap[coin.id]?.sentiment ?? null,
+        _pending:  prevMap[coin.id]?._pending  ?? false,
+        maxAbsChange,
+        prevChange: prevChanges[coin.symbol],
+      }));
 
-    // Dynamic timezone label using the browser/Intl API
-    function currentTimeLabel() {
-      const now  = new Date();
-      const tz   = 'Europe/Paris';
-      const time = now.toLocaleTimeString('en-US', { timeZone: tz, hour12: true,
-                      hour: 'numeric', minute: '2-digit', second: '2-digit' });
-      // Extract abbreviated TZ name (CET / CEST)
-      const tzName = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' })
-                       .formatToParts(now)
-                       .find(p => p.type === 'timeZoneName')?.value ?? '';
-      return `${time} ${tzName}`;
-    }
+      coins.forEach(c => { prevChanges[c.symbol] = c.price_change_percentage_24h; });
 
-    // ── Countdown bar ─────────────────────────────────────────────────────────
-    function startCountdown() {
-      clearInterval(countdownTimer);
-      secondsLeft = REFRESH_INTERVAL;
+      document.getElementById("skeleton").style.display = "none";
+      document.getElementById("crypto-table").style.display = "table";
+      updateSortHeaders();
+      renderRows();
+
+      const label = currentTimeLabel();
+      document.getElementById("status-bar").dataset.lastFetch = label;
       updateCountdownUI();
-      countdownTimer = setInterval(() => {
-        secondsLeft = Math.max(0, secondsLeft - 1);
-        updateCountdownUI();
-      }, 1000);
-    }
 
-    function updateCountdownUI() {
-      const fill = document.getElementById('countdown-fill');
-      fill.style.width = (secondsLeft / REFRESH_INTERVAL * 100) + '%';
-      const status = document.getElementById('status-bar');
-      const lastFetch = status.dataset.lastFetch ?? '';
-      status.textContent = lastFetch
-        ? `LAST UPDATE ${lastFetch} · NEXT IN ${secondsLeft}s`
-        : `NEXT IN ${secondsLeft}s`;
-    }
-
-    // ── Fetch ─────────────────────────────────────────────────────────────────
-    async function fetchCryptoData() {
-      if (isFetching) return;
-      isFetching = true;
-
-      const errorDiv = document.getElementById('error-msg');
-      const btn      = document.getElementById('refresh-btn');
-      btn.disabled   = true;
-      errorDiv.style.display = 'none';
-
-      try {
-        const res = await fetch(API_URL);
-
-        // Handle rate-limiting specifically
-        if (res.status === 429) {
-          const retryAfter = res.headers.get('Retry-After') ?? '60';
-          throw new Error(`Rate limited by CoinGecko. Retry in ~${retryAfter}s.`);
+      // Kick off news fetches for any coin that doesn't have data yet
+      tableData.forEach(entry => {
+        if (!entry.news && !entry._pending) {
+          entry._pending = true;
+          fetch(`${API_BASE}/api/news/${entry.coin.id}?name=${encodeURIComponent(entry.coin.name)}&symbol=${encodeURIComponent(entry.coin.symbol)}`)
+            .then(r => r.ok ? r.json() : Promise.reject(r))
+            .then(data => {
+              entry.news      = data.headlines ?? [];
+              entry.sentiment = data.sentiment  ?? null;
+              entry._pending  = false;
+              renderRows();
+            })
+            .catch(() => {
+              entry.news      = { error: true };
+              entry._pending  = false;
+              renderRows();
+            });
         }
-        if (!res.ok) throw new Error(`API error: HTTP ${res.status}`);
-
-        const data = await res.json();
-
-        // Sort by absolute 24h change, descending
-        const top10 = data
-          .filter(c => c.price_change_percentage_24h != null)
-          .sort((a, b) => Math.abs(b.price_change_percentage_24h) - Math.abs(a.price_change_percentage_24h))
-          .slice(0, 10);
-
-        // Max absolute change for relative bar scaling
-        const maxAbs = Math.abs(top10[0]?.price_change_percentage_24h ?? 1);
-
-        renderTable(top10, maxAbs);
-
-        // Update status
-        const label = currentTimeLabel();
-        const statusEl = document.getElementById('status-bar');
-        statusEl.dataset.lastFetch = label;
-        updateCountdownUI();
-
-        // Hide skeleton, show table
-        document.getElementById('skeleton').style.display = 'none';
-        document.getElementById('crypto-table').style.display = 'table';
-
-      } catch (err) {
-        errorDiv.textContent = '⚠ ' + err.message;
-        errorDiv.style.display = 'block';
-        // Keep showing old table data if available
-        if (!document.getElementById('crypto-body').hasChildNodes()) {
-          document.getElementById('skeleton').style.display = 'none';
-        }
-      } finally {
-        isFetching = false;
-        btn.disabled = false;
-      }
-    }
-
-    // ── Render ────────────────────────────────────────────────────────────────
-    function renderTable(coins, maxAbs) {
-      const tbody = document.getElementById('crypto-body');
-
-      // If rows already exist, update in place (no flicker)
-      const existingRows = tbody.querySelectorAll('tr');
-      const isUpdate     = existingRows.length === coins.length;
-
-      coins.forEach((coin, i) => {
-        const pct      = coin.price_change_percentage_24h; // real number
-        const isUp     = pct >= 0;
-        const absWidth = (Math.abs(pct) / maxAbs * 100).toFixed(1);
-        const prevPct  = previousData[coin.symbol];
-        const flashed  = prevPct != null && prevPct !== pct;
-
-        const html = `
-          <td class="td-rank">${i + 1}</td>
-          <td class="td-name">
-            ${coin.name}
-            <span class="td-symbol">${coin.symbol.toUpperCase()}</span>
-          </td>
-          <td class="td-price">${formatPrice(coin.current_price)}</td>
-          <td class="td-bar">
-            <div class="bar-track">
-              <div class="bar-fill ${isUp ? 'up' : 'down'}" style="width:${absWidth}%"></div>
-            </div>
-          </td>
-          <td class="td-change ${isUp ? 'up' : 'down'}">${formatChange(pct)}</td>
-        `;
-
-        let row;
-        if (isUpdate) {
-          row = existingRows[i];
-          row.innerHTML = html;
-        } else {
-          row = document.createElement('tr');
-          row.innerHTML = html;
-          tbody.appendChild(row);
-        }
-
-        // Flash row if value changed since last fetch
-        if (flashed) {
-          row.classList.remove('flash-up', 'flash-down');
-          void row.offsetWidth; // reflow to restart animation
-          row.classList.add(isUp ? 'flash-up' : 'flash-down');
-        }
-
-        previousData[coin.symbol] = pct;
       });
-    }
 
-    // ── Manual refresh ────────────────────────────────────────────────────────
-    function manualRefresh() {
-      clearTimeout(refreshTimer);
-      fetchCryptoData();
-      scheduleNext();
+    } catch (err) {
+      const el = document.getElementById("error-msg");
+      el.textContent = "⚠ " + err.message;
+      el.style.display = "block";
+      if (!tableData.length) document.getElementById("skeleton").style.display = "none";
+    } finally {
+      isFetching = false;
+      document.getElementById("refresh-btn").disabled = false;
     }
+  }
 
-    function scheduleNext() {
-      clearTimeout(refreshTimer);
-      startCountdown();
-      refreshTimer = setTimeout(() => {
-        fetchCryptoData();
-        scheduleNext();
-      }, REFRESH_INTERVAL * 1000);
-    }
+  // ── Sort ──────────────────────────────────────────────────────────────────
+  document.querySelectorAll("th.sortable").forEach(th => {
+    th.addEventListener("click", () => {
+      const col = th.dataset.col;
+      sortDir = sortCol === col ? (sortDir === "asc" ? "desc" : "asc") : (col === "name" ? "asc" : "desc");
+      sortCol = col;
+      updateSortHeaders();
+      renderRows();
+    });
+  });
 
-    // ── Init ──────────────────────────────────────────────────────────────────
-    fetchCryptoData();
+  function updateSortHeaders() {
+    document.querySelectorAll("th.sortable").forEach(th => {
+      th.classList.remove("sort-asc", "sort-desc");
+      if (th.dataset.col === sortCol) th.classList.add(sortDir === "asc" ? "sort-asc" : "sort-desc");
+    });
+  }
+
+  function sortedData() {
+    return [...tableData].sort((a, b) => {
+      let va, vb;
+      switch (sortCol) {
+        case "name":      va = a.coin.name.toLowerCase(); vb = b.coin.name.toLowerCase(); break;
+        case "price":     va = a.coin.current_price ?? 0; vb = b.coin.current_price ?? 0; break;
+        case "change":    va = Math.abs(a.coin.price_change_percentage_24h ?? 0); vb = Math.abs(b.coin.price_change_percentage_24h ?? 0); break;
+        case "sentiment": va = a.sentiment?.score ?? -99; vb = b.sentiment?.score ?? -99; break;
+        default: return 0;
+      }
+      if (va < vb) return sortDir === "asc" ? -1 : 1;
+      if (va > vb) return sortDir === "asc" ?  1 : -1;
+      return 0;
+    });
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  function renderRows() {
+    const tbody   = document.getElementById("crypto-body");
+    const ordered = sortedData();
+    const existing = tbody.querySelectorAll("tr");
+    const isUpdate  = existing.length === ordered.length;
+
+    ordered.forEach((entry, i) => {
+      const { coin, news, sentiment, maxAbsChange, prevChange } = entry;
+      const pct    = coin.price_change_percentage_24h;
+      const isUp   = pct >= 0;
+      const barW   = maxAbsChange > 0 ? (Math.abs(pct) / maxAbsChange * 100).toFixed(1) : 0;
+      const flash  = prevChange != null && prevChange !== pct;
+      const delay  = i * 0.08;
+
+      // Sentiment cell
+      let sentHtml;
+      if (!sentiment) {
+        sentHtml = `<span class="sk-inline" style="width:90px;animation-delay:${delay}s"></span>
+                    <span class="sk-inline" style="width:152px;animation-delay:${delay+0.1}s"></span>`;
+      } else {
+        const sc  = Math.max(-1, Math.min(1, sentiment.score));
+        const lft = ((sc + 1) / 2 * 100).toFixed(1);
+        const cls = sentiment.label === "Bullish" ? "bullish" : sentiment.label === "Bearish" ? "bearish" : "neutral";
+        sentHtml = `<div class="sentiment-wrap">
+          <div class="sentiment-label-row">
+            <span class="sentiment-pill ${cls}">${sentiment.label}</span>
+            <span class="sentiment-score-text">${sc >= 0 ? "+" : ""}${sc.toFixed(2)}</span>
+          </div>
+          <div class="sentiment-track"><div class="sentiment-needle" style="left:${lft}%"></div></div>
+          <div class="sentiment-reason">${sentiment.reason}</div>
+        </div>`;
+      }
+
+      // News cell
+      let newsHtml;
+      if (!news) {
+        newsHtml = `<div class="news-skeleton">
+          <div class="ns-line" style="width:95%;animation-delay:${delay}s"></div>
+          <div class="ns-line" style="width:80%;animation-delay:${delay+0.05}s"></div>
+          <div class="ns-line" style="width:88%;animation-delay:${delay+0.1}s"></div>
+        </div>`;
+      } else if (news.error) {
+        newsHtml = `<span class="news-error">⚠ Could not load news</span>`;
+      } else {
+        newsHtml = `<ul class="news-list">${news.map(h => `
+          <li>
+            <a class="news-link" href="${h.url || "#"}" target="_blank" rel="noopener"
+               title="${h.title}">${h.title.length > 78 ? h.title.slice(0, 76) + "…" : h.title}</a>
+            <span class="news-source">${h.source ?? ""}</span>
+          </li>`).join("")}</ul>`;
+      }
+
+      const html = `
+        <td class="td-rank">${i + 1}</td>
+        <td class="td-coin">
+          <span class="coin-name">${coin.name}</span>
+          <span class="coin-sym">${coin.symbol.toUpperCase()}</span>
+        </td>
+        <td class="td-price">${fmtPrice(coin.current_price)}</td>
+        <td class="td-bar col-bar">
+          <div class="bar-track"><div class="bar-fill ${isUp ? "up" : "down"}" style="width:${barW}%"></div></div>
+        </td>
+        <td class="td-change ${isUp ? "up" : "down"}">${fmtChange(pct)}</td>
+        <td class="td-sentiment col-sentiment">${sentHtml}</td>
+        <td class="td-news">${newsHtml}</td>
+      `;
+
+      let row;
+      if (isUpdate) {
+        row = existing[i];
+        row.innerHTML = html;
+      } else {
+        row = document.createElement("tr");
+        row.innerHTML = html;
+        tbody.appendChild(row);
+      }
+
+      if (flash) {
+        row.classList.remove("flash-up", "flash-down");
+        void row.offsetWidth;
+        row.classList.add(isUp ? "flash-up" : "flash-down");
+      }
+    });
+
+    while (tbody.children.length > ordered.length) tbody.lastChild.remove();
+  }
+
+  // ── Countdown ─────────────────────────────────────────────────────────────
+  function startCountdown() {
+    clearInterval(countdownTmr);
+    secondsLeft = REFRESH_INTERVAL;
+    updateCountdownUI();
+    countdownTmr = setInterval(() => { secondsLeft = Math.max(0, secondsLeft - 1); updateCountdownUI(); }, 1000);
+  }
+  function updateCountdownUI() {
+    document.getElementById("countdown-fill").style.width = (secondsLeft / REFRESH_INTERVAL * 100) + "%";
+    const el = document.getElementById("status-bar");
+    const last = el.dataset.lastFetch ?? "";
+    el.textContent = last ? `UPDATED ${last} · NEXT IN ${secondsLeft}s` : `NEXT IN ${secondsLeft}s`;
+  }
+
+  // ── Manual refresh ────────────────────────────────────────────────────────
+  function manualRefresh() {
+    clearTimeout(refreshTmr);
+    tableData.forEach(d => { d.news = null; d.sentiment = null; d._pending = false; });
+    fetchCoins();
     scheduleNext();
+  }
+  function scheduleNext() {
+    clearTimeout(refreshTmr);
+    startCountdown();
+    refreshTmr = setTimeout(() => { fetchCoins(); scheduleNext(); }, REFRESH_INTERVAL * 1000);
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  updateSortHeaders();
+  fetchCoins();
+  scheduleNext();
   </script>
 </body>
 </html>
